@@ -1,177 +1,448 @@
 ﻿using UnityEngine;
 using System.Collections;
-using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour {
 
-    private Board _mGameBoard;
+	// reference to our board
+	Board m_gameBoard;
 
-    private Spawner _mSpawner;
+	// reference to our spawner 
+	Spawner m_spawner;
 
-    private Shape _mActiveShape;
+	// reference to our soundManager
+	SoundManager m_soundManager;
 
-    private float _timetoDrop;
-    private float _dropInterval = .9f;
+	// reference to our scoreManager
+	ScoreManager m_scoreManager;
 
-    private bool _mGameOver = false;
+	// currently active shape
+	Shape m_activeShape;
 
-    [Range(.02f, 1f)]
-    public float KeyRepeatRateLeftRight = 0.25f;
-    private float _timeToNextKeyLeftRight;
+	// ghost for visualization
+	Ghost m_ghost;
 
-    [Range(.02f, 1f)]
-    public float KeyRepeatRateDown = 0.068f;
-    private float _timeToNextKeyDown;
+	Holder m_holder;
 
-    [Range(.02f, 1f)]
-    public float KeyRepeatRateRotate = 0.2f;
-    private float _timeToNextKeyRotate;
+	// starting drop interval value
+	public float m_dropInterval = 0.1f;
 
-    private SoundManager _soundManager;
+	// drop interval modified by level
+	float m_dropIntervalModded;
 
-    public GameObject GameOverPanel;
+	// the next time that the active shape can drop
+	float m_timeToDrop;
 
-    void PlayerInput()
-    {
-        if((Input.GetButton("MoveRight") && (Time.time > _timeToNextKeyLeftRight)) || Input.GetButtonDown("MoveRight"))
-        {
-            _mActiveShape.MoveRight();
-            _timeToNextKeyLeftRight = Time.time + KeyRepeatRateLeftRight;
+	// the next time that the active shape can move left or right
+	float m_timeToNextKeyLeftRight;
 
-            if (!_mGameBoard.IsValidPosition(_mActiveShape))
-            {
-                _mActiveShape.MoveLeft();
-            }
-        } else
+	// the time window we can move left and right
+	[Range(0.02f,1f)]
+	public float m_keyRepeatRateLeftRight = 0.25f;
 
-        if ((Input.GetButton("MoveLeft") && (Time.time > _timeToNextKeyLeftRight)) || Input.GetButtonDown("MoveLeft"))
-        {
-            _mActiveShape.MoveLeft();
-            _timeToNextKeyLeftRight = Time.time + KeyRepeatRateLeftRight;
-             
-            if (!_mGameBoard.IsValidPosition(_mActiveShape))
-            {
-                _mActiveShape.MoveRight();
-            }
-        } else
+	// the next time that the active shape can move down
+	float m_timeToNextKeyDown;
 
-        if (Input.GetButtonDown("Rotate") && (Time.time > _timeToNextKeyRotate))
-        {
-            _mActiveShape.RotateRight();
-            _timeToNextKeyRotate = Time.time + KeyRepeatRateRotate;
+	// the time window we can move down
+	[Range(0.01f,0.5f)]
+	public float m_keyRepeatRateDown = 0.01f;
 
-            if (!_mGameBoard.IsValidPosition(_mActiveShape))
-            {
-                _mActiveShape.RotateLeft();
-            }
-        } else if ((Input.GetButton("MoveDown") && (Time.time > _timeToNextKeyDown)) || (Time.time > _timetoDrop))
-        {
-            _timetoDrop = Time.time + _dropInterval;
-            _timeToNextKeyDown = Time.time + KeyRepeatRateDown;
-            _mActiveShape.MoveDown();
+	// the time window we can rotate 
+	float m_timeToNextKeyRotate;
 
-            if (!_mGameBoard.IsValidPosition(_mActiveShape))
-            {
-                if (_mGameBoard.IsOverLimit(_mActiveShape))
-                {
-                    GameOver();
-                }
-                else
-                {
-                    LandShape();
-                }
-            }
-        }
+	// the time window we can rotate the shape
+	[Range(0.02f,1f)]
+	public float m_keyRepeatRateRotate = 0.25f;
 
-    }
+	// the panel that displays when our game is over
+	public GameObject m_gameOverPanel;
 
-    private void GameOver()
-    {
-        _mActiveShape.MoveUp();
-        _mGameOver = true;
+	// whether we have reached the game over condition
+	bool m_gameOver = false;
 
-        if (GameOverPanel)
-        {
-            GameOverPanel.SetActive(true);
-        }
-        Debug.LogWarning(_mActiveShape.name + " is over the limit");
-    }
+	// toggles the rotation direction icon
+	public IconToggle m_rotIconToggle;
 
-    public void Restart()
-    {
-        Debug.Log("Restarted");
-        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
-    }
+	// whether we are rotating clockwise or not when we click the up arrow
+	bool m_clockwise = true;
 
-    private void LandShape()
-    {
-        _timeToNextKeyDown = Time.time;
-        _timeToNextKeyLeftRight = Time.time;
-        _timeToNextKeyRotate = Time.time;
+	// whether we are paused
+	public bool m_isPaused = false;
 
-        _mActiveShape.MoveUp();
-        _mGameBoard.StoreShape(_mActiveShape);
-        _mActiveShape = _mSpawner.SpawnShape();
+	// the panel that display when we Pause
+	public GameObject m_pausePanel;
 
-        _mGameBoard.ClearAllRows();
-    }
+	public ParticlePlayer m_gameOverFx;
 
-    // Use this for initialization
-    void Start()
-    {
-        _mGameBoard = GameObject.FindObjectOfType<Board>();
-        _mSpawner = GameObject.FindObjectOfType<Spawner>();
-        _soundManager = GameObject.FindObjectOfType<SoundManager>();
 
-        _timeToNextKeyDown = Time.time + KeyRepeatRateDown;
-        _timeToNextKeyLeftRight = Time.time + KeyRepeatRateLeftRight;
-        _timeToNextKeyRotate = Time.time + KeyRepeatRateRotate;
-
-        if (!_mGameBoard)
-        {
-            Debug.LogWarning(("WARNING! There is no game board defined!"));
-        }
-
-        if (!_soundManager)
-        {
-            Debug.LogWarning("WARNING! There is no sound manager defined!");
-        }
-
-        if (!_mSpawner)
-        {
-            Debug.LogWarning("WARNING! There is no spawner defined!");
-        }
-        else
-        {
-            _mSpawner.transform.position = Vectorf.Round(_mSpawner.transform.position);
-
-            if (!_mActiveShape)
-            {
-                _mActiveShape = _mSpawner.SpawnShape();
-            }
-        }
-
-        if (GameOverPanel)
-        {
-            GameOverPanel.SetActive(false);
-        }
-
-        if (_soundManager && _soundManager.m_moveSound && _soundManager.m_fxEnabled)
-        {
-
-            AudioSource.PlayClipAtPoint(_soundManager.m_moveSound, Camera.main.transform.position,
-                _soundManager.m_fxVolume);
-        }
-    }
-
-    // Update is called once per frame
-	void Update ()
+	// Use this for initialization
+	void Start () 
 	{
-	    if (!_mGameBoard || !_mSpawner || !_mActiveShape || _mGameOver || !_soundManager)
-	    {
-	        return;
-	    }
-        
-        PlayerInput();
+		
+		// find spawner and board with GameObject.FindWithTag plus GetComponent; make sure you tag your objects correctly
+		//m_gameBoard = GameObject.FindWithTag("Board").GetComponent<Board>();
+		//m_spawner = GameObject.FindWithTag("Spawner").GetComponent<Spawner>();
+
+		// find spawner and board with generic version of GameObject.FindObjectOfType, slower but less typing
+		m_gameBoard = GameObject.FindObjectOfType<Board>();
+		m_spawner = GameObject.FindObjectOfType<Spawner>();
+		m_soundManager = GameObject.FindObjectOfType<SoundManager>();
+		m_scoreManager = GameObject.FindObjectOfType<ScoreManager>();
+		m_ghost = GameObject.FindObjectOfType<Ghost>();
+		m_holder = GameObject.FindObjectOfType<Holder>();
+
+
+		m_timeToNextKeyDown = Time.time + m_keyRepeatRateDown;
+		m_timeToNextKeyLeftRight = Time.time + m_keyRepeatRateLeftRight;
+		m_timeToNextKeyRotate = Time.time + m_keyRepeatRateRotate;
+
+		if (!m_gameBoard)
+		{
+			Debug.LogWarning("WARNING!  There is no game board defined!");
+		}
+
+		if (!m_soundManager)
+		{
+			Debug.LogWarning("WARNING!  There is no sound manager defined!");
+		}
+
+		if (!m_scoreManager)
+		{
+			Debug.LogWarning("WARNING!  There is no score manager defined!");
+		}
+
+		if (!m_spawner)
+		{
+			Debug.LogWarning("WARNING!  There is no spawner defined!");
+		}
+		else
+		{
+			m_spawner.transform.position = Vectorf.Round(m_spawner.transform.position);
+
+			if (!m_activeShape)
+			{
+				m_activeShape = m_spawner.SpawnShape();
+			}
+		}
+
+		if (m_gameOverPanel)
+		{
+			m_gameOverPanel.SetActive(false);
+		}
+
+		if (m_pausePanel)
+		{
+			m_pausePanel.SetActive(false);
+		}
+			
+		m_dropIntervalModded = Mathf.Clamp(m_dropInterval - ((float)m_scoreManager.m_level * 0.1f), 0.05f, 1f);
 	}
+
+	// Update is called once per frame
+	void Update () 
+	{
+		// if we are missing a spawner or game board or active shape, then we don't do anything
+		if (!m_spawner || !m_gameBoard || !m_activeShape || m_gameOver || !m_soundManager || !m_scoreManager)
+		{
+			return;
+		}
+
+		PlayerInput ();
+	}
+
+	void LateUpdate()
+	{
+		if (m_ghost)
+		{
+			m_ghost.DrawGhost(m_activeShape,m_gameBoard);
+		}
+	}
+
+	void PlayerInput ()
+	{
+		// example of NOT using the Input Manager
+		//if (Input.GetKey ("right") && (Time.time > m_timeToNextKey) || Input.GetKeyDown (KeyCode.RightArrow)) 
+
+		if ((Input.GetButton ("MoveRight") && (Time.time > m_timeToNextKeyLeftRight)) || Input.GetButtonDown ("MoveRight")) 
+		{
+			m_activeShape.MoveRight ();
+			m_timeToNextKeyLeftRight = Time.time + m_keyRepeatRateLeftRight;
+
+			if (!m_gameBoard.IsValidPosition (m_activeShape)) 
+			{
+				m_activeShape.MoveLeft ();
+				PlaySound (m_soundManager.m_errorSound,0.5f);
+			}
+			else
+			{
+				PlaySound (m_soundManager.m_moveSound,0.5f);
+
+			}
+
+		}
+		else if  ((Input.GetButton ("MoveLeft") && (Time.time > m_timeToNextKeyLeftRight)) || Input.GetButtonDown ("MoveLeft")) 
+		{
+			m_activeShape.MoveLeft ();
+			m_timeToNextKeyLeftRight = Time.time + m_keyRepeatRateLeftRight;
+
+			if (!m_gameBoard.IsValidPosition (m_activeShape)) 
+			{
+				m_activeShape.MoveRight ();
+				PlaySound (m_soundManager.m_errorSound,0.5f);
+			}
+			else
+			{
+				PlaySound (m_soundManager.m_moveSound,0.5f);
+
+			}
+
+		}
+		else if  (Input.GetButtonDown ("Rotate") && (Time.time > m_timeToNextKeyRotate)) 
+		{
+			//m_activeShape.RotateRight();
+			m_activeShape.RotateClockwise(m_clockwise);
+
+			m_timeToNextKeyRotate = Time.time + m_keyRepeatRateRotate;
+
+			if (!m_gameBoard.IsValidPosition (m_activeShape)) 
+			{
+				//m_activeShape.RotateLeft();
+				m_activeShape.RotateClockwise(!m_clockwise);
+
+				PlaySound (m_soundManager.m_errorSound,0.5f);
+			}
+			else
+			{
+				PlaySound (m_soundManager.m_moveSound,0.5f);
+
+			}
+
+		}
+
+		else if  ((Input.GetButton ("MoveDown") && (Time.time > m_timeToNextKeyDown)) ||  (Time.time > m_timeToDrop)) 
+		{
+			m_timeToDrop = Time.time + m_dropIntervalModded;
+
+			m_timeToNextKeyDown = Time.time + m_keyRepeatRateDown;
+
+			m_activeShape.MoveDown ();
+
+			if (!m_gameBoard.IsValidPosition (m_activeShape)) 
+			{
+				if (m_gameBoard.IsOverLimit(m_activeShape))
+				{
+					GameOver ();
+				}
+				else
+				{
+					LandShape ();
+				}
+			}
+
+		}
+		else if (Input.GetButtonDown("ToggleRot"))
+		{
+			ToggleRotDirection();
+		}
+		else if (Input.GetButtonDown("Pause"))
+		{
+			TogglePause();
+		}
+		else if (Input.GetButtonDown("Hold"))
+		{
+			Hold();
+		}
+	}
+
+	// shape lands
+	void LandShape ()
+	{
+		// move the shape up, store it in the Board's grid array
+		m_activeShape.MoveUp ();
+		m_gameBoard.StoreShapeInGrid (m_activeShape);
+
+		m_activeShape.LandShapeFX();
+		
+		if (m_ghost)
+		{
+			m_ghost.Reset();
+		}
+
+		if (m_holder)
+		{
+			m_holder.m_canRelease = true;
+		}
+		// spawn a new shape
+		m_activeShape = m_spawner.SpawnShape ();
+
+		// set all of the timeToNextKey variables to current time, so no input delay for the next spawned shape
+		m_timeToNextKeyLeftRight = Time.time;
+		m_timeToNextKeyDown = Time.time;
+		m_timeToNextKeyRotate = Time.time;
+
+		// remove completed rows from the board if we have any 
+		//m_gameBoard.ClearAllRows();
+
+		m_gameBoard.StartCoroutine("ClearAllRows");
+	
+
+
+		PlaySound (m_soundManager.m_dropSound);
+
+		if (m_gameBoard.m_completedRows > 0)
+		{
+			m_scoreManager.ScoreLines(m_gameBoard.m_completedRows);
+
+			if (m_scoreManager.didLevelUp)
+			{
+				m_dropIntervalModded = Mathf.Clamp(m_dropInterval - ((float)m_scoreManager.m_level * 0.05f), 0.05f, 1f);
+				PlaySound(m_soundManager.m_levelUpVocalClip);
+			}
+			else
+			{
+				if (m_gameBoard.m_completedRows > 1)
+				{
+					AudioClip randomVocal = m_soundManager.GetRandomClip(m_soundManager.m_vocalClips);
+					PlaySound(randomVocal);
+				}
+			}
+
+
+
+			PlaySound (m_soundManager.m_clearRowSound);
+		}
+
+
+	}
+
+	// triggered when we are over the board's limit
+	void GameOver ()
+	{
+		// move the shape one row up
+		m_activeShape.MoveUp ();
+
+		StartCoroutine("GameOverRoutine");
+
+		// play the failure sound effect
+		PlaySound (m_soundManager.m_gameOverSound,5f);
+
+		// play "game over" vocal
+		PlaySound (m_soundManager.m_gameOverVocalClip,5f);
+
+
+		// set the game over condition to true
+		m_gameOver = true;
+	}
+
+	IEnumerator GameOverRoutine()
+	{
+		if (m_gameOverFx)
+		{
+			m_gameOverFx.Play();
+		}
+		yield return new WaitForSeconds(0.1f);
+
+		// turn on the Game Over Panel
+		if (m_gameOverPanel) 
+		{
+			m_gameOverPanel.SetActive (true);
+		}
+
+	}
+
+	// reload the level
+	public void Restart()
+	{
+		Time.timeScale = 1f;
+		Application.LoadLevel(Application.loadedLevel);
+	}
+
+	// plays a sound with an option volume multiplier
+	void PlaySound (AudioClip clip, float volMultiplier = 1.0f)
+	{
+		if (m_soundManager.m_fxEnabled && clip) {
+			AudioSource.PlayClipAtPoint (clip, Camera.main.transform.position, Mathf.Clamp(m_soundManager.m_fxVolume*volMultiplier,0.05f,1f));
+		}
+	}
+
+	public void ToggleRotDirection()
+	{
+		m_clockwise = !m_clockwise;
+		if (m_rotIconToggle)
+		{
+			m_rotIconToggle.ToggleIcon(m_clockwise);
+		}
+	}
+
+	public void TogglePause()
+	{
+		m_isPaused = !m_isPaused;
+
+		if (m_pausePanel)
+		{
+			m_pausePanel.SetActive(m_isPaused);
+
+			if (m_soundManager)
+			{
+				m_soundManager.m_musicSource.volume = (m_isPaused) ? m_soundManager.m_musicVolume * 0.25f : m_soundManager.m_musicVolume;
+			}
+
+			Time.timeScale = (m_isPaused) ? 0 : 1;
+		}
+	}
+
+	public void Hold()
+	{
+
+		// if the holder is empty...
+		if (!m_holder.m_heldShape)
+		{
+			// catch the current active Shape
+			m_holder.Catch(m_activeShape);
+
+			// spawn a new Shape
+			m_activeShape = m_spawner.SpawnShape();
+
+			// play a sound
+			PlaySound(m_soundManager.m_holdSound);
+
+		} 
+		// if the holder is not empty and can release…
+		else if (m_holder.m_canRelease)
+		{
+			// set our active Shape to a temporary Shape
+			Shape shape = m_activeShape;
+
+			// release the currently heldShape 
+			m_activeShape = m_holder.Release();
+
+			// move the released Shape back to the spawner position
+			m_activeShape.transform.position = m_spawner.transform.position;
+
+			// catch the temporary Shape
+			m_holder.Catch(shape);
+
+			// play a sound 
+			PlaySound(m_soundManager.m_holdSound);
+
+		} 
+		// the holder is not empty but cannot release yet
+		else
+		{
+			//Debug.LogWarning("HOLDER WARNING:  Wait for cool down");
+
+			// play an error sound
+			PlaySound(m_soundManager.m_errorSound);
+
+		}
+
+		// reset the Ghost every time we tap the Hold button
+		if (m_ghost)
+		{
+			m_ghost.Reset();
+		}
+
+	}
+
+
+
 }

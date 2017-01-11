@@ -1,170 +1,213 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 
-public class Board : MonoBehaviour
-{
 
-    public Transform EmptySprite;
-    public int m_Height = 30;
-    public int m_Width = 10;
-    public int m_Header = 10;
+public class Board : MonoBehaviour {
+	
+	// a SpriteRenderer that will be instantiated in a grid to create our board
+	public Transform m_emptySprite;
 
-    private Transform[,] _grid;
+	// the height of the board
+	public int m_height = 30;
 
-    void Awake()
-    {
-        _grid = new Transform[m_Width,m_Height];
-    }
+	// width of the board
+	public int m_width = 10;
 
-// Use this for initialization
-    void Start()
-    {
-        DrawEmptyCells();
-    }
+	// number of rows where we won't have grid lines at the top
+	public int m_header = 8;
 
-    // Update is called once per frame
-    void Update()
-    {
+	// store inactive shapes here
+	Transform[,] m_grid;
 
-    }
+	public int m_completedRows = 0;
 
-    bool IsWithinBoard(int x, int y)
-    {
-        return (x >= 0 && x < m_Width && y >= 0);
-    }
+	public ParticlePlayer[]  m_rowGlowFx = new ParticlePlayer[4];
 
-    public bool IsValidPosition(Shape shape)
-    {
-        foreach (Transform child in shape.transform)
-        {
-            var pos = Vectorf.Round(child.position);
-            if (!IsWithinBoard((int) pos.x, (int) pos.y))
-            {
-                return false;
-            }
 
-            if (IsOccupied((int) pos.x, (int) pos.y, shape))
-            {
-                return false;
-            }
-        }
+	void Awake()
+	{
+		m_grid = new Transform[m_width,m_height];
+	}
 
-        return true;
-    }
+	void Start () {
+		DrawEmptyCells();
+	}
+	
+	// Update is called once per frame
+	void Update () {
 
-    public bool IsOccupied(int x, int y, Shape shape)
-    {
-        return (_grid[x, y] != null && _grid[x, y].parent != shape.transform);
-    }
+	}
 
-    public void StoreShape(Shape shape)
-    {
-        if (shape == null)
-            return;
+	bool IsWithinBoard(int x, int y)
+	{
+		return (x >= 0 && x < m_width && y >= 0);
 
-        foreach (Transform child in shape.transform)
-        {
-            Vector2 pos = Vectorf.Round(child.position);
-            _grid[(int) pos.x, (int) pos.y] = child;
-        }
-    }
+	}
 
-    void DrawEmptyCells()
-    {
-        if (EmptySprite != null)
-        {
-            for (var y = 0; y < m_Height - m_Header; y++)
-            {
-                for (var x = 0; x < m_Width; x++)
-                {
-                    var clone = Instantiate(EmptySprite, new Vector3(x, y, 0), Quaternion.identity) as Transform;
-                    if (clone == null) continue;
+	bool IsOccupied(int x, int y, Shape shape)
+	{
 
-                    clone.name = string.Format("Board Space ( x = {0} , y = {1}", x, y);
-                    clone.transform.parent = transform;
-                }
-            }
-        }
-        else
-        {
-            Debug.Log("Warning no sprite!");
-        }
-    }
+		return (m_grid[x,y] !=null && m_grid[x,y].parent != shape.transform);
+	}
 
-    bool IsComplete(int y)
-    {
-        for (int x = 0; x < m_Width; x++)
-        {
-            if (_grid[x, y] == null)
-            {
-                return false;
-            }
-        }
+	public bool IsValidPosition(Shape shape)
+	{
+		foreach (Transform child in shape.transform)
+		{
+			Vector2 pos = Vectorf.Round(child.position);
 
-        return true;
-    }
+			if (!IsWithinBoard((int) pos.x, (int) pos.y))
+			{
+				return false;
+			}
 
-    void ClearRow(int y)
-    {
-        for (int x = 0; x < m_Width; x++)
-        {
-            if (_grid[x, y] != null)
-            {
-                Destroy(_grid[x, y].gameObject);
-            }
+			if (IsOccupied((int) pos.x, (int) pos.y, shape))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
 
-            _grid[x, y] = null;
-        }
-    }
+	// draw our empty board with our empty sprite object
+	void DrawEmptyCells() {
+		if (m_emptySprite)
+		{
+			for (int y = 0; y < m_height - m_header; y++)
+			{
+				for (int x = 0; x < m_width; x++) 
+				{
+					Transform clone;
+					clone = Instantiate(m_emptySprite, new Vector3(x, y, 0), Quaternion.identity) as Transform;
 
-    void ShiftOneRowDown(int y)
-    {
-        for (int x = 0; x < m_Width; x++)
-        {
-            if (_grid[x, y] != null)
-            {
-                _grid[x, y-1] = _grid[x, y];
-                _grid[x, y] = null;
-                _grid[x, y-1].position += new Vector3(0, -1, 0);
-            }
-        }
-    }
+					// names the empty squares for organizational purposes
+					clone.name = "Board Space ( x = " + x.ToString() +  " , y =" + y.ToString() + " )"; 
 
-    void ShiftRowsDown(int startY)
-    {
-        for (int i = startY; i < m_Height; ++i)
-        {
-            ShiftOneRowDown(i);
-        }
+					// parents all of the empty squares to the Board object
+					clone.transform.parent = transform;
+				}
+			}
+		}
+	}
 
-    }
+	public void StoreShapeInGrid(Shape shape)
+	{
+		if (shape == null)
+		{
+			return;
+		}
 
-    public void ClearAllRows()
-    {
-        for (int y = 0; y < m_Height; y++)
-        {
-            if (IsComplete(y))
-            {
-                ClearRow(y);
+		foreach (Transform child in shape.transform)
+		{
+			Vector2 pos = Vectorf.Round(child.position);
+			m_grid[(int) pos.x, (int) pos.y] = child;
+		}
+	}
+		
+	bool IsComplete(int y)
+	{
+		for (int x = 0; x < m_width; ++x)
+		{
+			if (m_grid[x,y] == null)
+			{
+				return false;
+			}
 
-                ShiftRowsDown(y+1);
-                y--;
-            }
-        }
-    }
+		}
+		return true;
+	}
 
-    public bool IsOverLimit(Shape shape)
-    {
-        foreach (Transform child in shape.transform)
-        {
-            if (child.transform.position.y >= (m_Height - m_Header - 1))
-            {
-                return true;
-            }
-        }
+	void ClearRow(int y)
+	{
+		for (int x = 0; x < m_width; ++x)
+		{
+			if (m_grid[x,y] !=null)
+			{
+				Destroy(m_grid[x,y].gameObject);
 
-        return false;
-    }
+			}
+			m_grid[x,y] = null;
+
+		}
+
+	}
+
+	void ShiftOneRowDown(int y)
+	{
+
+		for (int x = 0; x < m_width; ++x)
+		{
+			if (m_grid[x,y] !=null)
+			{
+				m_grid[x, y-1] = m_grid[x,y];
+				m_grid[x,y] = null;
+				m_grid[x, y-1].position += new Vector3(0,-1,0);
+			}
+		}
+	}
+
+	void ShiftRowsDown(int startY)
+	{
+		for (int i = startY; i < m_height; ++i)
+		{
+			ShiftOneRowDown(i);
+		}
+	}
+
+	public IEnumerator ClearAllRows()
+	{
+		m_completedRows = 0;
+
+		for (int y = 0; y < m_height; ++y)
+		{
+			if (IsComplete(y)) 
+			{
+				ClearRowFX(m_completedRows,y);
+				m_completedRows++;
+			}
+		}
+		yield return new WaitForSeconds(0.3f);
+
+		for (int y = 0; y < m_height; ++y)
+		{
+			if (IsComplete(y)) 
+			{
+				ClearRow(y);
+				ShiftRowsDown(y+1);
+				yield return new WaitForSeconds(0.25f);
+				y--;
+			}
+
+		}
+	}
+
+	public bool IsOverLimit(Shape shape)
+	{
+		foreach (Transform child in shape.transform) 
+		{
+			if (child.transform.position.y >= m_height - m_header)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	void ClearRowFX(int idx, int y)
+	{
+
+		if (m_rowGlowFx[idx])
+		{
+			m_rowGlowFx[idx].transform.position = new Vector3 (0, y, -1);
+			m_rowGlowFx[idx].Play();
+		}
+
+			
+	}
+
+
+
+
+
 
 }
